@@ -25,7 +25,7 @@
 - Windows 桌面版 Obsidian。
 - Python 3.10 或更高版本。
 - `yt-dlp` 和 `imageio-ffmpeg`。
-- DeepSeek API Key。导入字幕时会调用一次 DeepSeek；播放、字幕跟随和音频导出不调用 AI。
+- 大模型 API Key。导入字幕时会调用一次 大模型；播放、字幕跟随和音频导出不调用 AI。
 - 如需自动同步复听音频，需要本机存在 `~/OneDrive` 文件夹。
 
 ## 安装
@@ -39,7 +39,7 @@
 
 3. 双击运行 `install_dependency.cmd` 安装本地依赖。
 4. 在 Obsidian 的“第三方插件”设置中启用“视频口语精听”。
-5. 在插件设置中填入 DeepSeek API Key。
+5. 在插件设置中填入 API Key。
 
 API Key 只保存在本机插件目录的 `data.json` 中；该文件已被 `.gitignore` 排除。当前版本采用 Obsidian 社区插件常见的本地明文配置方式，请自行保护电脑和 Obsidian 库。
 
