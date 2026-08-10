@@ -1,0 +1,9 @@
+{
+  "id": "youtube-listening-lab",
+  "name": "视频口语精听",
+  "version": "0.11.9",
+  "minAppVersion": "1.5.0",
+  "description": "导入 YouTube 或 B站英文字幕，支持句首回放、字幕跟随和通勤复听音频导出。",
+  "author": "loj963648-oss",
+  "isDesktopOnly": true
+}
