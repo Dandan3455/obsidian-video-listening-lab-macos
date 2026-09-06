@@ -24,7 +24,7 @@ from typing import Iterable
 
 
 DEFAULT_VAULT = Path.home() / "Documents" / "Obsidian Vault"
-DEFAULT_FOLDER = "口语精听"
+DEFAULT_FOLDER = "视频精听"
 ENGLISH_LANGUAGE = re.compile(r"^en(?:[-_].*)?$", re.IGNORECASE)
 TIMESTAMP = re.compile(
     r"(?P<start>\d{2}:\d{2}:\d{2}[.,]\d{3}|\d{2}:\d{2}[.,]\d{3})\s+-->"

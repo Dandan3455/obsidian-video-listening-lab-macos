@@ -16,7 +16,7 @@ const os = require("os");
 const path = require("path");
 
 const VIEW_TYPE = "youtube-listening-player";
-const OUTPUT_FOLDER = "口语精听";
+const OUTPUT_FOLDER = "视频精听";
 const DEFAULT_SETTINGS = { deepseekApiKey: "" };
 
 function startPlayerServer() {

@@ -6,7 +6,7 @@
 
 - 导入 YouTube 人工英文字幕；没有人工字幕时使用自动英文字幕。
 - 在 Bilibili 视频公开提供英文字幕轨时导入该轨道。
-- 使用大模型对字幕进行一次断句和轻量清理，再生成最终笔记。
+- 使用 DeepSeek 对字幕进行一次断句和轻量清理，再生成最终笔记。
 - 在 Obsidian 右侧维持一个播放器，点击段落或句首时间戳即可跳转。
 - 播放时自动滚动并高亮当前句。
 - 支持只读精听稿，降低误编辑概率。
@@ -25,7 +25,7 @@
 - Windows 桌面版 Obsidian。
 - Python 3.10 或更高版本。
 - `yt-dlp` 和 `imageio-ffmpeg`。
-- 大模型 API Key。导入字幕时会调用一次 大模型；播放、字幕跟随和音频导出不调用 AI。
+- DeepSeek API Key。导入字幕时会调用一次 DeepSeek；播放、字幕跟随和音频导出不调用 AI。
 - 如需自动同步复听音频，需要本机存在 `~/OneDrive` 文件夹。
 
 ## 安装
@@ -39,7 +39,7 @@
 
 3. 双击运行 `install_dependency.cmd` 安装本地依赖。
 4. 在 Obsidian 的“第三方插件”设置中启用“视频口语精听”。
-5. 在插件设置中填入 API Key。
+5. 在插件设置中填入 DeepSeek API Key。
 
 API Key 只保存在本机插件目录的 `data.json` 中；该文件已被 `.gitignore` 排除。当前版本采用 Obsidian 社区插件常见的本地明文配置方式，请自行保护电脑和 Obsidian 库。
 
