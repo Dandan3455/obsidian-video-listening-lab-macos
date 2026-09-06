@@ -8,7 +8,7 @@
 
 - 导入 YouTube 人工英文字幕；没有人工字幕时使用自动英文字幕。
 - 在 Bilibili 视频公开提供英文字幕轨时导入该轨道。
-- 使用 DeepSeek 对字幕进行一次断句和轻量清理，再生成最终笔记。
+- 支持本地原始字幕、DeepSeek 精校，以及 AI 不可用时自动回退的导入模式。
 - 在 Obsidian 右侧维持一个播放器，点击段落或句首时间戳即可跳转。
 - 播放时自动滚动并高亮当前句。
 - 支持只读精听稿，降低误编辑概率。
@@ -27,7 +27,7 @@
 - macOS 或 Windows 桌面版 Obsidian。
 - Python 3.10 或更高版本。
 - `yt-dlp` 和 `imageio-ffmpeg`。
-- DeepSeek API Key。导入字幕时会调用一次 DeepSeek；播放、字幕跟随和音频导出不调用 AI。
+- DeepSeek API Key（可选）。仅在选择或自动使用 AI 精校时需要。
 - 如需自动同步复听音频，可使用 iCloud Drive、OneDrive，或在插件设置中指定目录。
 
 ## 安装
@@ -51,7 +51,7 @@
    - Windows：双击运行 `install_dependency.cmd`。
 
 4. 在 Obsidian 的“第三方插件”设置中启用“视频口语精听”。
-5. 在插件设置中填入 DeepSeek API Key。
+5. 在插件设置中选择字幕处理模式；如需 AI 精校，再填入 DeepSeek API Key。
 
 macOS 会自动检测 Homebrew、`/usr/local` 和系统 Python 3。若自动检测失败，可在插件设置中填写 Python 可执行文件的绝对路径；运行 `which python3` 可以查看该路径。
 
@@ -61,14 +61,16 @@ API Key 只保存在本机插件目录的 `data.json` 中；该文件已被 `.gi
 
 1. 点击 Obsidian 左侧栏的耳机图标。
 2. 粘贴 YouTube 或完整 Bilibili 视频链接；可选填开始和结束时间。
-3. 等待字幕提取和 DeepSeek 清理完成。
+3. 等待字幕提取完成；如启用 AI 精校，还会等待 DeepSeek 整理。
 4. 在生成的精听稿中点击时间戳或句首 `▶` 播放。
 5. 打开当前精听稿后，点击播放器栏的“导出复听音频”，或在命令面板运行“导出当前精听稿复听音频”。
 
 ## 数据与 Token
 
 - 字幕提取、时间戳对齐、播放器控制和音频导出均在本地完成，不消耗模型 Token。
-- DeepSeek 只处理新导入的视频字幕；字幕文本会发送到 DeepSeek API。
+- “仅本地”模式不调用 AI，也不消耗 Token。
+- “自动”模式有可用密钥时尝试 DeepSeek；没有密钥或调用失败时自动生成本地字幕笔记。
+- “DeepSeek 精校”模式只处理新导入的视频字幕；字幕文本会发送到 DeepSeek API。
 - 插件不会上传你的 Obsidian 笔记。
 
 ## 已知限制

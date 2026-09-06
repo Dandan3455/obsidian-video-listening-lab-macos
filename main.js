@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS = {
   deepseekApiKey: "",
   pythonPath: "",
   audioExportFolder: "",
+  transcriptMode: "auto",
 };
 
 function expandHome(input) {
@@ -628,10 +629,10 @@ class ImportVideoModal extends Modal {
       .setDesc("例如 07:00")
       .addText((text) => text.onChange((value) => (this.end = value.trim())));
 
-    if (!this.plugin.hasDeepSeekApiKey()) {
+    if (!this.plugin.hasDeepSeekApiKey() && this.plugin.settings.transcriptMode !== "local") {
       new Setting(contentEl)
-        .setName("DeepSeek API 密钥（首次使用）")
-        .setDesc("按 Obsidian AI 插件的常见方式保存到本机插件设置；以后导入不再询问。")
+        .setName("DeepSeek API 密钥（可选）")
+        .setDesc("自动模式可留空并使用本地字幕；AI 精校模式必须填写。")
         .addText((text) => {
           text.inputEl.type = "password";
           text.setPlaceholder("sk-...");
@@ -648,12 +649,16 @@ class ImportVideoModal extends Modal {
             new Notice("请先粘贴 YouTube 或 B 站链接");
             return;
           }
-          if (!this.plugin.hasDeepSeekApiKey() && !this.apiKey) {
-            new Notice("首次使用请填写 DeepSeek API 密钥");
+          if (
+            this.plugin.settings.transcriptMode === "ai" &&
+            !this.plugin.hasDeepSeekApiKey() &&
+            !this.apiKey
+          ) {
+            new Notice("AI 精校模式需要 DeepSeek API 密钥");
             return;
           }
           button.setDisabled(true);
-          button.setButtonText("正在提取并精校字幕…");
+          button.setButtonText("正在提取字幕…");
           try {
             if (this.apiKey) await this.plugin.saveDeepSeekApiKey(this.apiKey);
             await this.plugin.importVideo(this.url, this.start, this.end);
@@ -819,6 +824,26 @@ function attachSentenceTimings(cleaned, sourceSegments, rawTimedWords) {
   }));
 }
 
+function localTranscriptParagraphs(sourceSegments) {
+  const paragraphs = [];
+  let current = null;
+  for (const segment of sourceSegments) {
+    const t = Number(segment?.t);
+    const text = String(segment?.text || "").replace(/\s+/g, " ").trim();
+    if (!Number.isFinite(t) || !text) continue;
+    const gap = current && t - current.lastTime > 5;
+    if (!current || gap || current.count >= 4) {
+      current = { t, href: segment.href, speaker: "", text, lastTime: t, count: 1 };
+      paragraphs.push(current);
+    } else {
+      current.text += ` ${text}`;
+      current.lastTime = t;
+      current.count += 1;
+    }
+  }
+  return paragraphs.map(({ lastTime, count, ...paragraph }) => paragraph);
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -879,8 +904,21 @@ class ListeningLabSettingsTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.createEl("h2", { text: "视频口语精听" });
     containerEl.createEl("p", {
-      text: "导入时先由本地代码提取字幕，再由 DeepSeek 精校，最后只生成一份最终笔记。密钥只需设置一次。",
+      text: "字幕可完全在本地生成，也可选择使用 DeepSeek 进一步整理断句和说话轮次。",
     });
+    new Setting(containerEl)
+      .setName("字幕处理模式")
+      .setDesc("自动模式在 DeepSeek 不可用时会回退到本地字幕，确保仍能创建笔记。")
+      .addDropdown((dropdown) => dropdown
+        .addOption("auto", "自动（推荐）")
+        .addOption("local", "仅本地，不消耗 Token")
+        .addOption("ai", "DeepSeek 精校")
+        .setValue(this.plugin.settings.transcriptMode || "auto")
+        .onChange(async (value) => {
+          this.plugin.settings.transcriptMode = value;
+          await this.plugin.saveData(this.plugin.settings);
+          this.display();
+        }));
     const saved = this.plugin.hasDeepSeekApiKey();
     new Setting(containerEl)
       .setName("DeepSeek API 密钥")
@@ -1753,7 +1791,7 @@ module.exports = class YouTubeListeningPlugin extends Plugin {
     return cleaned;
   }
 
-  async createImportedCleanNote(payload, cleaned) {
+  async createImportedCleanNote(payload, cleaned, processingMode = "ai") {
     const folder = OUTPUT_FOLDER;
     if (!this.app.vault.getAbstractFileByPath(folder)) {
       await this.app.vault.createFolder(folder);
@@ -1771,15 +1809,17 @@ module.exports = class YouTubeListeningPlugin extends Plugin {
       `segment: ${secondsLabel(payload.segment_start)}-${secondsLabel(payload.segment_end)}`,
       `captions: ${String(payload.source || "")}`,
       `playback: ${payload.browser_only ? "browser-only" : "embedded"}`,
-      "status: imported-ai-cleaned",
-      "ai_model: deepseek-v4-flash",
+      `status: ${processingMode === "ai" ? "imported-ai-cleaned" : "imported-local"}`,
+      ...(processingMode === "ai" ? ["ai_model: deepseek-v4-flash"] : []),
       "---",
       "",
       `# ${title}`,
       "",
       `学习片段：${secondsLabel(payload.segment_start)}–${secondsLabel(payload.segment_end)}`,
       "",
-      "这份字幕已由 DeepSeek 整理断句、说话轮次和明显重复；点击每句前的 ▶ 可从句首回听。",
+      processingMode === "ai"
+        ? "这份字幕已由 DeepSeek 整理断句、说话轮次和明显重复；点击每句前的 ▶ 可从句首回听。"
+        : "这份字幕直接由视频字幕轨在本地生成，未发送给 AI；点击每句前的 ▶ 可从句首回听。",
       "",
       "## 使用方式",
       "",
@@ -1984,16 +2024,33 @@ module.exports = class YouTubeListeningPlugin extends Plugin {
     if (!Array.isArray(payload?.segments) || !payload.segments.length) {
       throw new Error("没有提取到可供精校的字幕");
     }
+    const mode = this.settings.transcriptMode || "auto";
     const apiKey = this.getDeepSeekApiKey();
-    if (!apiKey) throw new Error("请先设置 DeepSeek API 密钥");
-    new Notice("字幕已提取，正在由 DeepSeek 精校；完成前不会创建笔记", 6000);
-    const cleanedParagraphs = await this.cleanWithDeepSeek(payload.segments, apiKey);
-    const cleaned = attachSentenceTimings(cleanedParagraphs, payload.segments, payload.words);
-    await this.createImportedCleanNote(payload, cleaned);
-    if (payload.browser_only) {
-      new Notice("精校笔记已生成；这个视频禁止嵌入，时间戳将使用默认浏览器", 10000);
+    let processingMode = "local";
+    let cleanedParagraphs;
+    if (mode === "local" || (mode === "auto" && !apiKey)) {
+      cleanedParagraphs = localTranscriptParagraphs(payload.segments);
     } else {
-      new Notice("DeepSeek 精校笔记已生成；点击时间戳会控制右侧播放器", 7000);
+      if (!apiKey) throw new Error("AI 精校模式需要 DeepSeek API 密钥");
+      new Notice("字幕已提取，正在由 DeepSeek 精校；完成前不会创建笔记", 6000);
+      try {
+        cleanedParagraphs = await this.cleanWithDeepSeek(payload.segments, apiKey);
+        processingMode = "ai";
+      } catch (error) {
+        if (mode === "ai") throw error;
+        new Notice(`DeepSeek 不可用，已回退到本地字幕：${error?.message || error}`, 10000);
+        cleanedParagraphs = localTranscriptParagraphs(payload.segments);
+      }
+    }
+    const cleaned = attachSentenceTimings(cleanedParagraphs, payload.segments, payload.words);
+    await this.createImportedCleanNote(payload, cleaned, processingMode);
+    if (payload.browser_only) {
+      new Notice("字幕笔记已生成；这个视频禁止嵌入，时间戳将使用默认浏览器", 10000);
+    } else {
+      new Notice(
+        `${processingMode === "ai" ? "DeepSeek 精校" : "本地字幕"}笔记已生成；点击时间戳会控制右侧播放器`,
+        7000
+      );
     }
   }
 };
