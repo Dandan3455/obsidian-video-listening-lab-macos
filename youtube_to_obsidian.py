@@ -275,7 +275,7 @@ def youtube_subtitle_download(
     try:
         import yt_dlp
     except ImportError:
-        fail("找不到 yt-dlp。请先运行 install_dependency.cmd 安装字幕提取组件。")
+        fail("找不到 yt-dlp。请先运行对应平台的依赖安装脚本。")
 
     inspect_options = {"quiet": True, "no_warnings": True, "skip_download": True, "noprogress": True}
     try:

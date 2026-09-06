@@ -17,7 +17,20 @@ const path = require("path");
 
 const VIEW_TYPE = "youtube-listening-player";
 const OUTPUT_FOLDER = "视频精听";
-const DEFAULT_SETTINGS = { deepseekApiKey: "" };
+const DEFAULT_SETTINGS = {
+  deepseekApiKey: "",
+  pythonPath: "",
+  audioExportFolder: "",
+};
+
+function expandHome(input) {
+  const value = String(input || "").trim();
+  if (value === "~") return os.homedir();
+  if (value.startsWith(`~${path.sep}`) || value.startsWith("~/")) {
+    return path.join(os.homedir(), value.slice(2));
+  }
+  return value;
+}
 
 function startPlayerServer() {
   return new Promise((resolve, reject) => {
@@ -901,6 +914,28 @@ class ListeningLabSettingsTab extends PluginSettingTab {
           this.display();
         }));
     }
+
+    new Setting(containerEl)
+      .setName("Python 可执行文件")
+      .setDesc("可留空自动检测。macOS 可填写 /opt/homebrew/bin/python3，Windows 可填写 python。")
+      .addText((text) => text
+        .setPlaceholder("自动检测")
+        .setValue(this.plugin.settings.pythonPath || "")
+        .onChange(async (value) => {
+          this.plugin.settings.pythonPath = value.trim();
+          await this.plugin.saveData(this.plugin.settings);
+        }));
+
+    new Setting(containerEl)
+      .setName("复听音频导出目录")
+      .setDesc("可留空自动选择 iCloud Drive、OneDrive 或笔记库内目录；支持以 ~/ 开头的路径。")
+      .addText((text) => text
+        .setPlaceholder("自动选择")
+        .setValue(this.plugin.settings.audioExportFolder || "")
+        .onChange(async (value) => {
+          this.plugin.settings.audioExportFolder = value.trim();
+          await this.plugin.saveData(this.plugin.settings);
+        }));
   }
 }
 
@@ -1617,6 +1652,48 @@ module.exports = class YouTubeListeningPlugin extends Plugin {
     return String(this.settings?.deepseekApiKey || "").trim();
   }
 
+  getPythonCommand() {
+    const configured = expandHome(this.settings?.pythonPath);
+    if (configured) return configured;
+    if (process.platform === "win32") return "python";
+    if (process.platform === "darwin") {
+      const candidates = [
+        "/opt/homebrew/bin/python3",
+        "/usr/local/bin/python3",
+        "/Library/Frameworks/Python.framework/Versions/Current/bin/python3",
+        "/usr/bin/python3",
+      ];
+      return candidates.find((candidate) => fs.existsSync(candidate)) || "python3";
+    }
+    return "python3";
+  }
+
+  getAudioExportFolder(vaultPath) {
+    const configured = expandHome(this.settings?.audioExportFolder);
+    if (configured) return configured;
+
+    if (process.platform === "darwin") {
+      const iCloudDrive = path.join(
+        os.homedir(),
+        "Library",
+        "Mobile Documents",
+        "com~apple~CloudDocs"
+      );
+      if (fs.existsSync(iCloudDrive)) return path.join(iCloudDrive, "口语精听复听");
+
+      const cloudStorage = path.join(os.homedir(), "Library", "CloudStorage");
+      if (fs.existsSync(cloudStorage)) {
+        const oneDrive = fs.readdirSync(cloudStorage)
+          .find((name) => name === "OneDrive" || name.startsWith("OneDrive-"));
+        if (oneDrive) return path.join(cloudStorage, oneDrive, "口语精听复听");
+      }
+    }
+
+    const oneDrive = path.join(os.homedir(), "OneDrive");
+    if (fs.existsSync(oneDrive)) return path.join(oneDrive, "口语精听复听");
+    return path.join(vaultPath, OUTPUT_FOLDER, "复听音频");
+  }
+
   async cleanWithDeepSeek(segments, apiKey) {
     const system = [
       "You turn automatic English captions into a faithful, readable listening transcript.",
@@ -1775,12 +1852,8 @@ module.exports = class YouTubeListeningPlugin extends Plugin {
       return;
     }
 
-    const oneDriveRoot = path.join(os.homedir(), "OneDrive");
-    if (!fs.existsSync(oneDriveRoot)) {
-      new Notice("没有找到电脑上的 OneDrive 文件夹，暂时无法自动同步到 iPhone");
-      return;
-    }
-    const outputFolder = path.join(oneDriveRoot, "口语精听复听");
+    const vaultPath = this.app.vault.adapter.getBasePath();
+    const outputFolder = this.getAudioExportFolder(vaultPath);
     await fs.promises.mkdir(outputFolder, { recursive: true });
 
     const safeTitle = transcriptView.file.basename
@@ -1804,7 +1877,6 @@ module.exports = class YouTubeListeningPlugin extends Plugin {
       suffix += 1;
     }
 
-    const vaultPath = this.app.vault.adapter.getBasePath();
     const scriptPath = path.join(
       vaultPath,
       this.app.vault.configDir,
@@ -1828,7 +1900,7 @@ module.exports = class YouTubeListeningPlugin extends Plugin {
     new Notice("正在下载并转换复听音频；长视频可能需要几分钟", 7000);
     try {
       const output = await new Promise((resolve, reject) => {
-        const child = spawn("python", args, { windowsHide: true });
+        const child = spawn(this.getPythonCommand(), args, { windowsHide: true });
         let stdout = "";
         let stderr = "";
         child.stdout.on("data", (chunk) => (stdout += chunk.toString("utf8")));
@@ -1851,7 +1923,7 @@ module.exports = class YouTubeListeningPlugin extends Plugin {
       if (!output.match(/^AUDIO_FILE=.+$/m) || !fs.existsSync(outputPath)) {
         throw new Error("音频处理完成，但没有找到输出文件");
       }
-      new Notice(`复听音频已导出到 OneDrive：${path.basename(outputPath)}`, 12000);
+      new Notice(`复听音频已导出：${outputPath}`, 12000);
     } catch (error) {
       new Notice(error?.message || "复听音频导出失败", 12000);
     } finally {
@@ -1884,7 +1956,7 @@ module.exports = class YouTubeListeningPlugin extends Plugin {
     }
 
     const output = await new Promise((resolve, reject) => {
-      const child = spawn("python", args, { windowsHide: true });
+      const child = spawn(this.getPythonCommand(), args, { windowsHide: true });
       let stdout = "";
       let stderr = "";
       child.stdout.on("data", (chunk) => (stdout += chunk.toString("utf8")));
