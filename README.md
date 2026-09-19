@@ -1,4 +1,4 @@
-# Obsidian 视频口语精听（macOS / Windows）
+# Obsidian 视频口语精听（macOS/Windows）
 
 本项目是 [loj963648-oss/obsidian-video-listening-lab](https://github.com/loj963648-oss/obsidian-video-listening-lab) 的跨平台移植版本，在保留原有功能的基础上增加 macOS 支持。原项目与本项目均依照 MIT License 发布。
 
@@ -62,7 +62,7 @@ API Key 只保存在本机插件目录的 `data.json` 中；该文件已被 `.gi
 1. 点击 Obsidian 左侧栏的耳机图标。
 2. 粘贴 YouTube 或完整 Bilibili 视频链接；可选填开始和结束时间。
 3. 等待字幕提取完成；如启用 AI 精校，还会等待 DeepSeek 整理。
-4. 在生成的精听稿中点击时间戳或句首 `▶` 播放。
+4. 在生成的精听稿中，点击时间戳或句首的 `▶` 播放。
 5. 打开当前精听稿后，点击播放器栏的“导出复听音频”，或在命令面板运行“导出当前精听稿复听音频”。
 
 ## 数据与 Token
@@ -77,7 +77,7 @@ API Key 只保存在本机插件目录的 `data.json` 中；该文件已被 `.gi
 
 - 发布者禁止第三方嵌入的视频只能在默认浏览器中播放，无法在 Obsidian 内同步进度。
 - Bilibili 仅支持公开英文字幕轨，不能识别烧录在画面里的字幕。
-- 未指定导出目录时，macOS 优先使用 iCloud Drive，其次使用 OneDrive；Windows 优先使用 `~/OneDrive`；没有云盘目录时保存到笔记库的 `视频精听/复听音频`。
+- 未指定导出目录时，macOS 优先使用 iCloud Drive，其次使用 OneDrive；Windows 优先使用 `~/OneDrive`；没有云盘目录时，保存到笔记库的 `视频精听/复听音频`。
 - 这是桌面插件，不支持 Obsidian Mobile。
 
 ## 仓库文件
@@ -95,7 +95,7 @@ API Key 只保存在本机插件目录的 `data.json` 中；该文件已被 `.gi
 - 识别 Apple Silicon Homebrew、Intel Homebrew、python.org 和系统 Python 路径。
 - 支持 macOS iCloud Drive 与 `~/Library/CloudStorage/OneDrive-*`。
 - 支持在插件设置中自定义 Python 和音频导出目录。
-- 在找不到云盘目录时安全回退到 Obsidian 笔记库。
+- 在找不到云盘目录时，安全回退到 Obsidian 笔记库。
 
 ## 致谢与许可证
 
